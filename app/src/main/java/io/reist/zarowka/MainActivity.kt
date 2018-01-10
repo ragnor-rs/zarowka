@@ -3,168 +3,19 @@ package io.reist.zarowka
 import android.Manifest.permission
 import android.app.Activity
 import android.bluetooth.BluetoothAdapter
-import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
-import android.media.AudioManager
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
-import android.os.Message
 import android.support.v4.app.ActivityCompat
 import android.support.v4.content.ContextCompat
 import android.support.v7.app.AppCompatActivity
-import android.util.Log
 import android.widget.CheckBox
 import android.widget.CompoundButton
 import android.widget.SeekBar
 
 
-class MainActivity : AppCompatActivity(), RmsMeasurer.Listener {
-
-    private val handler = object : Handler(Looper.getMainLooper()) {
-        override fun handleMessage(msg: Message?) {
-
-            super.handleMessage(msg)
-
-            msg?.let {
-
-                if (msg.what == MSG_DO_FRAME && targetRms != null) {
-
-                    val frameTime = System.nanoTime()
-
-                    if (currentRms == null) {
-                        currentRms = DoubleArray(targetRms!!.size)
-                    }
-
-                    for (i in 0 until currentRms!!.size) {
-                        val dt = (frameTime - lastBeatTime) / NANOSECONDS_IN_MILLISECONDS
-                        if (dt < 0) {
-                            Log.e(TAG, "dt = $dt")
-                        }
-                        if (dt <= BEAT_WARM_UP_TIME) {
-                            currentRms!![i] = dt / BEAT_WARM_UP_TIME * targetRms!![i]
-                        } else if (dt <= BEAT_COOL_DOWN_TIME) {
-                            currentRms!![i] = (1 - (dt - BEAT_WARM_UP_TIME) / BEAT_COOL_DOWN_TIME) * targetRms!![i]
-                        } else {
-                            currentRms!![i] = 0.0
-                        }
-                    }
-
-                    val lightBulbInteractor = (application as ZarowkaApp).colorDeviceInteractor
-                    lightBulbInteractor.listDevices().forEach {
-
-                        val maxRed = Color.red(initialColor[it] ?: 0)
-                        val maxGreen = Color.green(initialColor[it] ?: 0)
-                        val maxBlue = Color.blue(initialColor[it] ?: 0)
-
-                        val color = Color.rgb(
-                                (currentRms!![0] * maxRed).toInt(),
-                                (currentRms!![1] * maxGreen).toInt(),
-                                (currentRms!![2] * maxBlue).toInt()
-                        )
-
-                        lightBulbInteractor.setColor(it, color)
-
-                    }
-
-                }
-
-            }
-
-            val message = obtainMessage(MSG_DO_FRAME/*, frameTime*/)
-            sendMessageDelayed(message, UPDATE_INTERVAL)
-
-        }
-    }
-
-    private var previousRms: DoubleArray? = null
-    private var targetRms: DoubleArray? = null
-    private var currentRms: DoubleArray? = null
-
-    private var lastBeatTime = 0L
-
-    override fun onRmsValuesUpdated(rms: DoubleArray) {
-
-        val audioManager = application.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-        val vol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toDouble()
-        val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC).toDouble()
-        val threshold = DETECTOR_THRESHOLD * vol / maxVol
-
-        if (
-            rms[BEAT_BAND] >= threshold && previousRms?.get(BEAT_BAND) ?: threshold < threshold
-        ) {
-
-            Log.i(TAG, "RMS = ${rms[BEAT_BAND]}")
-
-//            if (targetRms == null) {
-//                targetRms = DoubleArray(rms.size)
-//            }
-//            System.arraycopy(rms, 0, targetRms, 0, rms.size)
-
-            if (targetRms == null) {
-                targetRms = DoubleArray(rms.size, {1.0})
-            } else {
-                targetRms!!.fill(1.0, 0, rms.size)
-            }
-
-            lastBeatTime = System.nanoTime()
-
-        }
-
-        if (previousRms == null) {
-            previousRms = DoubleArray(rms.size)
-        }
-        System.arraycopy(rms, 0, previousRms, 0, rms.size)
-
-    }
-
-    private var initialColor = HashMap<String, Int>()
-
-    override fun onRmsTrackingStarted() {
-
-        initialColor.clear()
-
-        val lightBulbInteractor = (application as ZarowkaApp).colorDeviceInteractor
-        lightBulbInteractor.listDevices().forEach {
-            initialColor[it] = lightBulbInteractor.getColor(it)
-        }
-
-        checkBoxVisualizer.post {
-            checkBoxVisualizer.setOnCheckedChangeListener(null)
-            checkBoxVisualizer.isChecked = true
-            checkBoxVisualizer.setOnCheckedChangeListener(checkBoxListener)
-        }
-
-        handler.sendMessage(handler.obtainMessage(MSG_DO_FRAME))
-
-    }
-
-    override fun onRmsTrackingStopped() {
-
-        handler.removeMessages(MSG_DO_FRAME)
-
-        checkBoxVisualizer.post {
-            checkBoxVisualizer.setOnCheckedChangeListener(null)
-            checkBoxVisualizer.isChecked = false
-            checkBoxVisualizer.setOnCheckedChangeListener(checkBoxListener)
-        }
-
-        val lightBulbInteractor = (application as ZarowkaApp).colorDeviceInteractor
-        lightBulbInteractor.listDevices().forEach {
-            val color = initialColor[it]
-            if (color != null) {
-                lightBulbInteractor.setColor(it, color)
-            }
-        }
-
-    }
-
-    private lateinit var seekBarColorRed: SeekBar
-    private lateinit var seekBarColorGreen: SeekBar
-    private lateinit var seekBarColorBlue: SeekBar
-    private lateinit var checkBoxVisualizer: CheckBox
+class MainActivity : AppCompatActivity(), AnimatorClient {
 
     private val seekBarListener = object : SeekBar.OnSeekBarChangeListener {
 
@@ -195,6 +46,13 @@ class MainActivity : AppCompatActivity(), RmsMeasurer.Listener {
         }
     }
 
+    private lateinit var seekBarColorRed: SeekBar
+    private lateinit var seekBarColorGreen: SeekBar
+    private lateinit var seekBarColorBlue: SeekBar
+    private lateinit var checkBoxVisualizer: CheckBox
+
+    private lateinit var zarowkaPrefs: ZarowkaPrefs
+
     override fun onCreate(savedInstanceState: Bundle?) {
 
         super.onCreate(savedInstanceState)
@@ -218,9 +76,6 @@ class MainActivity : AppCompatActivity(), RmsMeasurer.Listener {
         seekBarColorBlue.setOnSeekBarChangeListener(seekBarListener)
         checkBoxVisualizer.setOnCheckedChangeListener(checkBoxListener)
 
-        val zarowkaApp = application as ZarowkaApp
-        zarowkaApp.rmsMeasurer.addListener(this)
-
     }
 
     override fun onStart() {
@@ -228,10 +83,13 @@ class MainActivity : AppCompatActivity(), RmsMeasurer.Listener {
         super.onStart()
 
         val zarowkaApp = application as ZarowkaApp
+
         val colorDeviceInteractor = zarowkaApp.colorDeviceInteractor
         if (colorDeviceInteractor is WindowInteractor) {
             colorDeviceInteractor.attach(window)
         }
+
+        zarowkaApp.animator.attach(this)
 
         requestFeatures()
 
@@ -247,6 +105,9 @@ class MainActivity : AppCompatActivity(), RmsMeasurer.Listener {
         zarowkaPrefs.visuals = checkBoxVisualizer.isChecked
 
         val zarowkaApp = application as ZarowkaApp
+
+        zarowkaApp.animator.detach()
+
         val colorDeviceInteractor = zarowkaApp.colorDeviceInteractor
         if (colorDeviceInteractor is WindowInteractor) {
             colorDeviceInteractor.detach()
@@ -316,26 +177,17 @@ class MainActivity : AppCompatActivity(), RmsMeasurer.Listener {
         requestFeatures()
     }
 
-    companion object {
-
-        const val REQUEST_ENABLE_BT = 1033
-        const val REQUEST_PERMISSIONS = 1034
-
-        const val DETECTOR_THRESHOLD = 0.2
-        const val UPDATE_INTERVAL = 20L
-        const val BEAT_WARM_UP_TIME = 200.0
-        const val BEAT_COOL_DOWN_TIME = 500.0
-
-        const val BEAT_BAND = 0
-
-        const val TAG = "MainActivity"
-
-        const val MSG_DO_FRAME = 1
-
-        const val NANOSECONDS_IN_MILLISECONDS = 1000.0 * 1000.0
-
+    override fun setVisualizerCheckbox(v: Boolean) {
+        checkBoxVisualizer.post {
+            checkBoxVisualizer.setOnCheckedChangeListener(null)
+            checkBoxVisualizer.isChecked = v
+            checkBoxVisualizer.setOnCheckedChangeListener(checkBoxListener)
+        }
     }
 
-    private lateinit var zarowkaPrefs: ZarowkaPrefs
+    companion object {
+        const val REQUEST_ENABLE_BT = 1033
+        const val REQUEST_PERMISSIONS = 1034
+    }
 
 }

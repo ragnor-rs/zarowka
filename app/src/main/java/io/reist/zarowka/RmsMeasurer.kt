@@ -6,6 +6,8 @@ package io.reist.zarowka
 interface RmsMeasurer {
 
     fun addListener(listener: Listener)
+    fun removeListener(listener: Listener)
+
     fun trackRms()
     fun release()
     fun isStarted(): Boolean

@@ -7,8 +7,10 @@ import android.app.Application
  */
 class ZarowkaApp: Application() {
 
-    val colorDeviceInteractor: ColorDeviceInteractor = WindowInteractor() // LightBulbInteractor(this)
+    val colorDeviceInteractor: ColorDeviceInteractor = LightBulbInteractor(this)
 
     val rmsMeasurer: RmsMeasurer = VisualizerRmsMeasurer()
+
+    val animator = Animator(this)
 
 }

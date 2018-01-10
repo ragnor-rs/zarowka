@@ -16,6 +16,10 @@ class VisualizerRmsMeasurer : RmsMeasurer, Runnable {
         this.listeners.add(listener)
     }
 
+    override fun removeListener(listener: RmsMeasurer.Listener) {
+        listeners.remove(listener)
+    }
+
     private var running = false
     private var finishing = false
 

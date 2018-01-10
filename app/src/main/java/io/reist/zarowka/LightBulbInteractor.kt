@@ -122,6 +122,8 @@ class LightBulbInteractor(
 
         colorMap[device] = color
 
+//        Log.i(TAG, device + " = " + color)
+
         setColorInternal(
                 device,
                 Color.red(color),
