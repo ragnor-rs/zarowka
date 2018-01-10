@@ -8,7 +8,7 @@ import android.media.audiofx.Visualizer.SCALING_MODE_NORMALIZED
  */
 class VisualizerRmsMeasurer : RmsMeasurer, Runnable {
 
-    private val maxRms = DoubleArray(NUM_BANDS)
+//    private val maxRms = DoubleArray(NUM_BANDS)
 
     private val listeners: MutableList<RmsMeasurer.Listener> = ArrayList()
 
@@ -112,15 +112,17 @@ class VisualizerRmsMeasurer : RmsMeasurer, Runnable {
 
             for (i in 0 until NUM_BANDS) {
 
+                rms[i] /= (127.0 * 127.0 + 127.0 * 127.0)
+
                 rms[i] = Math.sqrt(rms[i] / num[i])
 
-                if (rms[i] > maxRms[i]) {
-                    maxRms[i] = rms[i]
-                }
-
-                if (maxRms[i] > 0.0) {
-                    rms[i] /= maxRms[i]
-                }
+//                if (rms[i] > maxRms[i]) {
+//                    maxRms[i] = rms[i]
+//                }
+//
+//                if (maxRms[i] > 0.0) {
+//                    rms[i] /= maxRms[i]
+//                }
 
             }
 

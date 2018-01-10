@@ -3,9 +3,11 @@ package io.reist.zarowka
 import android.Manifest.permission
 import android.app.Activity
 import android.bluetooth.BluetoothAdapter
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.media.AudioManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -85,21 +87,27 @@ class MainActivity : AppCompatActivity(), RmsMeasurer.Listener {
 
     override fun onRmsValuesUpdated(rms: DoubleArray) {
 
-//        val audioManager = application.getSystemService(Context.AUDIO_SERVICE) as AudioManager
-//        val vol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toDouble()
-//        val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC).toDouble()
-        val threshold = DETECTOR_THRESHOLD // * vol / maxVol
+        val audioManager = application.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        val vol = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toDouble()
+        val maxVol = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC).toDouble()
+        val threshold = DETECTOR_THRESHOLD * vol / maxVol
 
         if (
-            rms[0] >= threshold && previousRms?.get(0) ?: threshold < threshold
+            rms[BEAT_BAND] >= threshold && previousRms?.get(BEAT_BAND) ?: threshold < threshold
         ) {
 
-            Log.i(TAG, "RMS = ${rms[0]}")
+            Log.i(TAG, "RMS = ${rms[BEAT_BAND]}")
+
+//            if (targetRms == null) {
+//                targetRms = DoubleArray(rms.size)
+//            }
+//            System.arraycopy(rms, 0, targetRms, 0, rms.size)
 
             if (targetRms == null) {
-                targetRms = DoubleArray(rms.size)
+                targetRms = DoubleArray(rms.size, {1.0})
+            } else {
+                targetRms!!.fill(1.0, 0, rms.size)
             }
-            System.arraycopy(rms, 0, targetRms, 0, rms.size)
 
             lastBeatTime = System.nanoTime()
 
@@ -123,9 +131,11 @@ class MainActivity : AppCompatActivity(), RmsMeasurer.Listener {
             initialColor[it] = lightBulbInteractor.getColor(it)
         }
 
-        checkBoxVisualizer.setOnCheckedChangeListener(null)
-        checkBoxVisualizer.isChecked = true
-        checkBoxVisualizer.setOnCheckedChangeListener(checkBoxListener)
+        checkBoxVisualizer.post {
+            checkBoxVisualizer.setOnCheckedChangeListener(null)
+            checkBoxVisualizer.isChecked = true
+            checkBoxVisualizer.setOnCheckedChangeListener(checkBoxListener)
+        }
 
         handler.sendMessage(handler.obtainMessage(MSG_DO_FRAME))
 
@@ -135,9 +145,11 @@ class MainActivity : AppCompatActivity(), RmsMeasurer.Listener {
 
         handler.removeMessages(MSG_DO_FRAME)
 
-        checkBoxVisualizer.setOnCheckedChangeListener(null)
-        checkBoxVisualizer.isChecked = false
-        checkBoxVisualizer.setOnCheckedChangeListener(checkBoxListener)
+        checkBoxVisualizer.post {
+            checkBoxVisualizer.setOnCheckedChangeListener(null)
+            checkBoxVisualizer.isChecked = false
+            checkBoxVisualizer.setOnCheckedChangeListener(checkBoxListener)
+        }
 
         val lightBulbInteractor = (application as ZarowkaApp).colorDeviceInteractor
         lightBulbInteractor.listDevices().forEach {
@@ -309,10 +321,12 @@ class MainActivity : AppCompatActivity(), RmsMeasurer.Listener {
         const val REQUEST_ENABLE_BT = 1033
         const val REQUEST_PERMISSIONS = 1034
 
-        const val DETECTOR_THRESHOLD = 0.7
+        const val DETECTOR_THRESHOLD = 0.2
         const val UPDATE_INTERVAL = 20L
         const val BEAT_WARM_UP_TIME = 200.0
         const val BEAT_COOL_DOWN_TIME = 500.0
+
+        const val BEAT_BAND = 0
 
         const val TAG = "MainActivity"
 
