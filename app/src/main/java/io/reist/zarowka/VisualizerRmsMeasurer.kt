@@ -53,8 +53,6 @@ class VisualizerRmsMeasurer : RmsMeasurer, Runnable {
 
     companion object {
 
-        const val TAG = "VisualizerRmsMeasurer"
-
         const val UPDATE_PERIOD = 33 // in milliseconds
 
         const val NUM_BANDS = 3 // todo make it changeable

@@ -165,7 +165,7 @@ class Animator(
     companion object {
         
         const val DETECTOR_THRESHOLD = 0.2
-        const val UPDATE_INTERVAL = 40L
+        const val UPDATE_INTERVAL = 50L
         const val BEAT_WARM_UP_TIME = 200.0
         const val BEAT_COOL_DOWN_TIME = 1000.0
         const val BEAT_BAND = 1

@@ -23,7 +23,7 @@ class LightBulbInteractor(
     // todo get real state from light bulbs
     private val colorMap = HashMap<String, Int>()
 
-    override fun start(defaultColor: Int) {
+    override fun start(initialColor: Int) {
 
         val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
         val connectedDevices = bluetoothManager.getConnectedDevices(BluetoothProfile.GATT)
@@ -34,7 +34,7 @@ class LightBulbInteractor(
             return
         }
 
-        this.defaultColor = defaultColor
+        this.defaultColor = initialColor
 
         connectedDevices.forEach { tryToConnect(it) }
 
